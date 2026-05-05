@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +12,12 @@ export async function POST(request: NextRequest) {
     if (!prompt || !prompt.trim()) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
+
+    // 创建 Supabase 客户端
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!
+    );
 
     // 从数据库加载历史消息作为上下文
     let historyMessages: Array<{ role: string; content: string }> = [];
@@ -23,17 +31,16 @@ export async function POST(request: NextRequest) {
         });
         if (messagesResponse.ok) {
           const messages: Array<{ role: string; content: string }> = await messagesResponse.json();
-          historyMessages = messages.slice(-6); // 只保留最近 6 条消息作为上下文
+          historyMessages = messages.slice(-6);
         }
       } catch (err) {
         console.error('Failed to load history:', err);
       }
     }
 
-    // 构建消息内容（包含历史上下文）
+    // 构建消息内容
     const messagesPayload: Array<{ role: string; content: any }> = [];
 
-    // 添加历史消息作为上下文
     if (historyMessages.length > 0) {
       messagesPayload.push(
         ...historyMessages.map(msg => ({
@@ -43,30 +50,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 构建当前用户消息
     let currentContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
       { type: 'text', text: prompt }
     ];
 
-    // 如果有图片，添加到消息中
+    // 如果有图片，上传到 Supabase Storage
     if (image && image.size > 0) {
-      const bytes = await image.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const base64 = buffer.toString('base64');
-      const mimeType = image.type;
+      console.log('Processing image:', {
+        size: image.size,
+        type: image.type,
+        name: image.name
+      });
+
+      // 生成唯一文件名（使用 .jpg 扩展名）
+      const fileName = `${uuidv4()}.jpg`;
+      const bucketName = 'ai-images';
+      const filePath = `${sessionId || 'temp'}/${fileName}`;
+
+      // 上传图片到 Supabase Storage
+      const arrayBuffer = await image.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, buffer, {
+          contentType: 'image/jpeg',  // 强制使用 JPEG
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        throw new Error(`Failed to upload image: ${uploadError.message}`);
+      }
+
+      console.log('Image uploaded to Supabase:', uploadData.path);
+
+      // 获取公开 URL
+      const { data: publicUrlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      const imageUrl = publicUrlData.publicUrl;
+      console.log('Public URL:', imageUrl);
+
       currentContent.push({
         type: 'image_url',
-        image_url: { url: `data:${mimeType};base64,${base64}` }
+        image_url: { url: imageUrl }
       });
     }
 
-    // 添加当前消息到最后
     messagesPayload.push({
       role: 'user',
       content: currentContent
     });
 
-    // 调用 ModelScope API (OpenAI 兼容格式)
+    // 调用 ModelScope API
     const response = await fetch(`${process.env.AI_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {

@@ -42,19 +42,20 @@ export default function Home() {
   const handleImageSelect = async (file: File) => {
     setError(null);
     try {
-      // 压缩图片到 5MB 以下
+      // 压缩并转码图片为 JPEG 格式
       const compressedBlob = await compressImage(file);
-      const compressedFile = new File([compressedBlob], file.name, {
-        type: compressedBlob.type,
+      // 强制使用 JPEG 格式以确保 AI API 兼容性
+      const compressedFile = new File([compressedBlob], 'image.jpg', {
+        type: 'image/jpeg',
         lastModified: Date.now(),
       });
       setSelectedImage(compressedFile);
       setPreviewUrl(URL.createObjectURL(compressedFile));
     } catch (err) {
-      console.error('Compression error:', err);
-      // 压缩失败则使用原图
-      setSelectedImage(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      console.error('Image processing error:', err);
+      setError('Failed to process image, please try another image');
+      setSelectedImage(null);
+      setPreviewUrl(null);
     }
   };
 

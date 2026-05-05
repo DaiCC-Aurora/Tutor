@@ -8,7 +8,8 @@ export interface CompressOptions {
 }
 
 /**
- * 压缩图片到指定大小以下
+ * 压缩并转码图片为标准的 JPEG 格式
+ * 确保 AI API 能正确解码
  */
 export async function compressImage(
   file: File,
@@ -16,24 +17,20 @@ export async function compressImage(
 ): Promise<Blob> {
   const {
     maxSize = MAX_SIZE,
-    quality = 0.8,
+    quality = 0.85,
     maxWidth = 1920,
     maxHeight = 1920,
   } = options;
 
-  // 如果文件已经小于限制，直接返回
-  if (file.size <= maxSize) {
-    return file;
-  }
-
   return new Promise((resolve, reject) => {
     const img = new Image();
+
     img.onload = () => {
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
 
-      // 调整尺寸
+      // 调整尺寸 - 缩小到更合理的尺寸以适配 AI API
       if (width > maxWidth) {
         height = Math.round((height * maxWidth) / width);
         width = maxWidth;
@@ -51,6 +48,10 @@ export async function compressImage(
         reject(new Error('Failed to get canvas context'));
         return;
       }
+
+      // 填充白色背景（对于透明图片转换为 JPEG 时有用）
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
 
       ctx.drawImage(img, 0, 0, width, height);
 
@@ -72,7 +73,7 @@ export async function compressImage(
                 tryCompress();
               }
             },
-            file.type,
+            'image/jpeg',
             currentQuality
           );
         };
@@ -82,7 +83,11 @@ export async function compressImage(
       blobPromise.then(resolve).catch(reject);
     };
 
-    img.onerror = () => reject(new Error('Failed to load image'));
+    img.onerror = () => {
+      console.error('Failed to load image - may be an unsupported format like HEIC');
+      reject(new Error('Failed to load image'));
+    };
+
     img.src = URL.createObjectURL(file);
   });
 }
