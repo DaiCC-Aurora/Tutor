@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import ImageUploader from '@/components/ImageUploader';
 import ChatInput from '@/components/ChatInput';
 import MessageList, { type Message } from '@/components/MessageList';
 import Sidebar from '@/components/Sidebar';
+import PasswordModal from '@/components/PasswordModal';
 import { useMessageHistory } from '@/contexts/MessageHistoryContext';
+import { usePassword } from '@/contexts/PasswordContext';
 
 export default function Home() {
   const {
@@ -18,6 +20,8 @@ export default function Home() {
     loadMessages,
     fetchConversations,
   } = useMessageHistory();
+
+  const { isAuthenticated, logout } = usePassword();
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -175,6 +179,13 @@ export default function Home() {
             <h1 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100">
               AI Tutor
             </h1>
+            {/* 退出按钮 */}
+            <button
+              onClick={logout}
+              className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300 transition-colors"
+            >
+              退出
+            </button>
             {/* 图片指示器 */}
             {selectedImage && (
               <span className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
@@ -257,6 +268,13 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* 密码验证模态框 */}
+      {!isAuthenticated && (
+        <div className="fixed inset-0 bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-900 dark:to-black z-50">
+          <PasswordModal />
+        </div>
+      )}
     </div>
   );
 }
