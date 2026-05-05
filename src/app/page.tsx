@@ -9,6 +9,7 @@ import PromptLibrary from '@/components/PromptLibrary';
 import PasswordModal from '@/components/PasswordModal';
 import { useMessageHistory } from '@/contexts/MessageHistoryContext';
 import { usePassword } from '@/contexts/PasswordContext';
+import { compressImage } from '@/lib/image-compressor';
 
 export default function Home() {
   const {
@@ -37,10 +38,23 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleImageSelect = (file: File) => {
-    setSelectedImage(file);
-    setPreviewUrl(URL.createObjectURL(file));
+  const handleImageSelect = async (file: File) => {
     setError(null);
+    try {
+      // 压缩图片到 5MB 以下
+      const compressedBlob = await compressImage(file);
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: compressedBlob.type,
+        lastModified: Date.now(),
+      });
+      setSelectedImage(compressedFile);
+      setPreviewUrl(URL.createObjectURL(compressedFile));
+    } catch (err) {
+      console.error('Compression error:', err);
+      // 压缩失败则使用原图
+      setSelectedImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
   };
 
   const handleClearImage = () => {
@@ -190,7 +204,7 @@ export default function Home() {
               </svg>
             </button>
             <h1 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100">
-              AI Tutor
+              Aurora Tutor
             </h1>
             {/* Prompt 库按钮 */}
             <button

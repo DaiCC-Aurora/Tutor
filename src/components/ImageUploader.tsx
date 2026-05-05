@@ -15,16 +15,12 @@ export default function ImageUploader({ onImageSelect }: ImageUploaderProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 验证文件类型
     if (!file.type.startsWith('image/')) {
       return;
     }
 
-    // 创建预览
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
-
-    // 通知父组件
     onImageSelect?.(file);
   };
 
