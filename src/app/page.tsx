@@ -10,6 +10,7 @@ import PasswordModal from '@/components/PasswordModal';
 import { useMessageHistory } from '@/contexts/MessageHistoryContext';
 import { usePassword } from '@/contexts/PasswordContext';
 import { compressImage } from '@/lib/image-compressor';
+import { Analytics } from "@vercel/analytics/next"
 
 export default function Home() {
   const {
