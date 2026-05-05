@@ -127,10 +127,17 @@ export default function Home() {
         };
         setMessages((prev) => [...prev, assistantMessage]);
 
+        // 如果没有当前会话，先创建一个新的
+        let conversationId = currentConversationId;
+        if (!conversationId) {
+          conversationId = await createConversation(prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''));
+          setCurrentConversationId(conversationId);
+        }
+
         // 保存消息到数据库
-        if (currentConversationId) {
-          await saveMessage(currentConversationId, 'user', prompt, !!selectedImage);
-          await saveMessage(currentConversationId, 'assistant', data.result, false);
+        if (conversationId) {
+          await saveMessage(conversationId, 'user', prompt, !!selectedImage);
+          await saveMessage(conversationId, 'assistant', data.result, false);
         }
       }
     } catch (err) {

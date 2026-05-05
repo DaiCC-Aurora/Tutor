@@ -23,34 +23,57 @@
 - 只使用 `anon/public` key，不要泄露 `service_role` key
 - `service_role` key 拥有管理员权限，应严格保密
 
-## 3. 运行数据库迁移
+## 3. 运行数据库迁移（必须！）
 
 ### 方法一：使用 Supabase SQL Editor（推荐）
 
 1. 在 Supabase 仪表板点击左侧 **SQL Editor**
 2. 点击 **New Query**
-3. 复制并粘贴 `supabase/migrations/001_create_conversations.sql` 的内容
-4. 点击 **Run** 执行迁移
+3. 复制以下内容并粘贴到编辑器：
 
-### 方法二：使用 Supabase CLI（可选）
+```sql
+-- 创建会话表
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-```bash
-# 安装 Supabase CLI
-npm install -g supabase
+-- 创建消息表
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    has_image BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-# 登录
-supabase login
+-- 启用行级安全策略（RLS）
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
-# 链接到项目
-supabase link --project-ref your-project-ref
-
-# 应用迁移
-supabase db push
+-- 允许所有人读取和插入（全局共享场景）
+CREATE POLICY "public_select_conversations" ON conversations FOR SELECT USING (true);
+CREATE POLICY "public_select_messages" ON messages FOR SELECT USING (true);
+CREATE POLICY "public_insert_conversations" ON conversations FOR INSERT WITH CHECK (true);
+CREATE POLICY "public_insert_messages" ON messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "public_delete_conversations" ON conversations FOR DELETE USING (true);
+CREATE POLICY "public_delete_messages" ON messages FOR DELETE USING (true);
 ```
 
-## 4. 验证设置
+4. 点击 **Run** 执行迁移
 
-执行以下 SQL 查询验证表已创建：
+### 方法二：使用本地 SQL 文件
+
+1. 打开文件 `supabase/migrations/001_create_conversations.sql`
+2. 复制全部内容
+3. 在 Supabase SQL Editor 中粘贴并运行
+
+### 验证迁移成功
+
+执行以下查询确认表已创建：
 
 ```sql
 SELECT * FROM conversations LIMIT 1;
@@ -59,14 +82,14 @@ SELECT * FROM messages LIMIT 1;
 
 如果没有数据返回但也不报错，说明表已正确创建。
 
-## 5. 环境变量配置
+## 4. 环境变量配置
 
 确保 `.env.local` 包含以下变量：
 
 ```env
 # AI API 配置
 AI_BASE_URL=https://api-inference.modelscope.cn/v1
-AI_API_KEY=your-modelscope-api-key
+AI_API_KEY=ms-xxx-xxx-xxx
 AI_MODEL=Qwen/Qwen3.5-397B-A17B
 
 # Supabase 配置（必填）
@@ -74,7 +97,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
-## 6. Vercel 部署配置
+## 5. Vercel 部署配置
 
 在 Vercel 项目中添加相同的环境变量：
 
@@ -87,11 +110,14 @@ SUPABASE_ANON_KEY=your-anon-key-here
 
 ## 常见问题
 
-### Q: 迁移执行后报错 "relation already exists"
-A: 说明表已存在，可以忽略或先删除旧表再重新执行。
+### Q: 消息无法保存到数据库
+A: 最常见的原因是数据库表未创建。请确保已在 Supabase SQL Editor 中运行了迁移 SQL。
 
-### Q: 前端无法加载历史记录
-A: 检查浏览器控制台是否有 CORS 错误，确保 RLS 策略已正确配置。
+### Q: 前端显示 "Failed to load conversations"
+A: 检查浏览器控制台，如果是 403 错误，说明 RLS 策略未正确配置，请重新运行迁移 SQL。
+
+### Q: 测试数据库连接
+A: 访问 `/test-db` 页面（如 http://localhost:3000/test-db），如果返回 `{"success": true}` 说明连接正常。
 
 ### Q: 如何查看数据库实际数据？
 A: 在 Supabase 仪表板点击左侧 **Table Editor** 查看 conversations 和 messages 表。
