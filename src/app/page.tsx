@@ -113,10 +113,20 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
+      // 如果没有当前会话，先创建一个新的
+      let conversationId = currentConversationId;
+      if (!conversationId) {
+        conversationId = await createConversation(prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''));
+        setCurrentConversationId(conversationId);
+      }
+
       const formData = new FormData();
       formData.append('prompt', prompt);
       if (selectedImage) {
         formData.append('image', selectedImage);
+      }
+      if (conversationId) {
+        formData.append('sessionId', conversationId);
       }
 
       const response = await fetch('/api/chat', {
@@ -140,13 +150,6 @@ export default function Home() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
-
-        // 如果没有当前会话，先创建一个新的
-        let conversationId = currentConversationId;
-        if (!conversationId) {
-          conversationId = await createConversation(prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''));
-          setCurrentConversationId(conversationId);
-        }
 
         // 保存消息到数据库
         if (conversationId) {
