@@ -164,7 +164,7 @@ export default function Home() {
       />
 
       {/* 主内容区 */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* 头部 */}
         <header className="sticky top-0 z-10 backdrop-blur-sm bg-white/80 dark:bg-black/80 border-b border-zinc-200 dark:border-zinc-800">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
@@ -200,7 +200,7 @@ export default function Home() {
         </header>
 
         {/* 主内容区 */}
-        <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6 flex flex-col gap-4 sm:gap-6">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6 flex flex-col gap-4 sm:gap-6 min-h-0">
           {/* 图片上传区域（可选） */}
           <section className="flex-shrink-0">
             {!previewUrl ? (
@@ -258,15 +258,6 @@ export default function Home() {
             <ChatInput onSubmit={handleAskQuestion} disabled={isLoading} />
           </section>
         </main>
-
-        {/* 底部 */}
-        <footer className="border-t border-zinc-200 dark:border-zinc-800 flex-shrink-0">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 text-center">
-            <p className="text-xs text-zinc-500 dark:text-zinc-500">
-              AI Tutor - Powered by ModelScope
-            </p>
-          </div>
-        </footer>
       </div>
 
       {/* 密码验证模态框 */}
