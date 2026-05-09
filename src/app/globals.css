@@ -115,3 +115,15 @@ body {
 .dark .prose th {
   background-color: #1f2937;
 }
+
+/* KaTeX 数学公式样式 */
+.katex-display {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+.katex {
+  font-size: 1.1em;
+}
