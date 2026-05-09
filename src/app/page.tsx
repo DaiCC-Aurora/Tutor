@@ -155,23 +155,51 @@ export default function Home() {
         throw new Error(errorData.error || `HTTP error: ${response.status}`);
       }
 
-      const data = await response.json();
+      // 创建助手消息占位符
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
 
-      if (data.error) {
-        setError(data.error);
-      } else if (data.result) {
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.result,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+      // 处理流式响应
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
 
-        // 保存消息到数据库
-        if (conversationId) {
-          await saveMessage(conversationId, 'user', prompt, !!selectedImage);
-          await saveMessage(conversationId, 'assistant', data.result, false);
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        // 解析 SSE 格式的数据
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const content = data.choices?.[0]?.delta?.content || data.choices?.[0]?.text || '';
+              accumulatedContent += content;
+              setMessages((prev) => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === 'assistant') {
+                  updated[lastIdx] = { ...updated[lastIdx], content: accumulatedContent };
+                }
+                return updated;
+              });
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
         }
+      }
+
+      // 保存消息到数据库
+      if (conversationId && accumulatedContent) {
+        await saveMessage(conversationId, 'user', prompt, !!selectedImage);
+        await saveMessage(conversationId, 'assistant', accumulatedContent, false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get response');

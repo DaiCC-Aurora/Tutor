@@ -104,8 +104,8 @@ export async function POST(request: NextRequest) {
       content: currentContent
     });
 
-    // 调用 ModelScope API
-    const response = await fetch(`${process.env.AI_BASE_URL}/chat/completions`, {
+    // 调用 ModelScope API（启用流式响应）
+    const aiResponse = await fetch(`${process.env.AI_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -115,22 +115,27 @@ export async function POST(request: NextRequest) {
         model: process.env.AI_MODEL || 'Qwen/Qwen2.5-VL-72B-Instruct',
         messages: messagesPayload,
         max_tokens: 2048,
+        stream: true,
       }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
+    if (!aiResponse.ok) {
+      const errorData = await aiResponse.text();
       console.error('AI API Error:', errorData);
       return NextResponse.json(
-        { error: `API Error: ${response.status} ${errorData}` },
-        { status: response.status }
+        { error: `API Error: ${aiResponse.status} ${errorData}` },
+        { status: aiResponse.status }
       );
     }
 
-    const data = await response.json();
-    const result = data.choices?.[0]?.message?.content || 'No response from AI';
-
-    return NextResponse.json({ result, raw: data });
+    // 将 AI API 的流式响应透传给客户端
+    return new Response(aiResponse.body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Server Error:', error);
     return NextResponse.json(
